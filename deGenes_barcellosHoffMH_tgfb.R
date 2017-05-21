@@ -2,6 +2,9 @@
 
 R.utils::use("aroma.seq, edgeR, aroma.light, matrixStats")
 
+verbose=T
+verbose=F
+
 dataset <- "tmp"
 cohort <- "hg"
 organism <- "Homo_sapiens"
@@ -30,16 +33,18 @@ round(rho[j,j],2)
 
 dge$samples[, -1]
 samples <- cbind(samples, dge$samples[, c("lib.size", "norm.factors")])
-write.table(cbind(geneId = rownames(dge$counts), dge$counts), file = paste("count_raw_", organism, ".txt", sep = ""), col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-write.table(samples, file = paste("sample_", organism, ".txt", sep = ""), col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-
+if (verbose) {
+    write.table(cbind(geneId = rownames(dge$counts), dge$counts), file = paste("count_raw_", organism, ".txt", sep = ""), col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+    write.table(samples, file = paste("sample_", organism, ".txt", sep = ""), col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+}
 
 dge <- calcNormFactors(dge, method = "TMM")
 
 samples <- samples1[match(rownames(dge$samples), samples1$id), ]
 samples <- cbind(samples, dge$samples[, c("lib.size", "norm.factors")])
-write.table(samples, file = paste("sample_", organism, ".txt", sep = ""), col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-
+if (verbose) {
+    write.table(samples, file = paste("sample_", organism, ".txt", sep = ""), col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+}
 dge$samples$group <- samples$treat
 
 dgeAll <- dge
@@ -60,9 +65,10 @@ samplesThis=samplesThis[j,]
 lcpmT=cpm(dge,log=TRUE)
 tbl=as.data.frame(lcpmT)
 tbl=cbind(ensembl_gene_id=rownames(tbl),tbl)
-write.table(tbl, file=paste("logCPM.txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-gzip("logCPM.txt")
-
+if (verbose) {
+    write.table(tbl, file=paste("logCPM.txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+    gzip("logCPM.txt")
+}
 samplesThis=samples[match(colnames(dge),samples$id),]
 samplesThis$treat2=2-as.integer(as.factor(samplesThis$treat))
 j=1:ncol(dge)
@@ -74,9 +80,10 @@ dge=dge[,j]
 samplesThis=samplesThis[j,]
 tbl=as.data.frame(dge$counts)
 tbl=cbind(ensembl_gene_id=rownames(tbl),tbl)
-write.table(tbl, file=paste("countRaw.txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-gzip("countRaw.txt")
-
+if (verbose) {
+    write.table(tbl, file=paste("countRaw.txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+    gzip("countRaw.txt")
+}
 #--------------------------
 
 dge=dgeAll
@@ -141,13 +148,15 @@ for (subsetFlag in subsetList) {
             sqrt(dgeT$common.disp)
 
             fName2 <- paste(compFlag, subsetName2, sep = "")
-            save(dgeT, file = paste("dge_", organism, fName2, ".RData", sep = ""))
+            if (verbose) {
+                save(dgeT, file = paste("dge_", organism, fName2, ".RData", sep = ""))
+            }
 
             #cntVec=apply(dgeT$counts,1,max,na.rm=T)
             cntVec=apply(t(t(dgeT$counts)*dgeT$sample$norm.factors),1,max,na.rm=T)
             
             ## -----------------------------------------
-            if (T) {
+            if (F) {
                 dispFlag <- "common"
                 dispFlag <- "tagwise"
                 dispFlag <- "trended"
@@ -158,15 +167,15 @@ for (subsetFlag in subsetList) {
                     dgeF <- estimateDisp(dgeF, trend = "none", robust = TRUE)
                     et <- exactTest(dgeF, dispersion = dispFlag, pair = grpUniq[c(grpId1, grpId2)])
                     
-                    source("biomartify.1.1.R")
-                    source("biomartify.1.2.R")
+                    #source(paste(dirSrc,"functions/biomartify.1.1.R",sep=""))
+                    source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
                     top <- topTags(et, n = nrow(et))
                     write.table(cbind(geneId=rownames(top),top$table), paste("stat", fName3, ".txt", sep = ""), sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE)
                     #top <- biomartify(top, organism = "HomoSapiens")
                     #write.table(top, paste("stat", fName3, ".txt", sep = ""), sep = "\t", col.names = TRUE, row.names = FALSE, quote = FALSE)
                     
                     if (F) {
-                        source("biomartify.1.2.R")
+                        source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
                         i=1:10
                         top1 <- biomartify(top[i,], organism = "HomoSapiens")
                         top1 <- biomartify(as.data.frame(top[i,]), organism = "HomoSapiens")
@@ -188,7 +197,9 @@ for (subsetFlag in subsetList) {
                 effectFlag="random"
                 effectFlag="fixed"
                 if (effectFlag=="random" & subsetFlag=="_4hrs") break
-                for (minCnt in c(0,2,5,10,20)) {
+                minCntList=c(0,2,5,10,20)
+                minCntList=c(10)
+                for (minCnt in minCntList) {
                     fName3=paste(fName2,"_voom_minCnt",minCnt,sep="")
                     dgeF=dgeT[which(cntVec>=minCnt),]
                     dgeF <- estimateDisp(dgeF, trend = "none", robust = TRUE)
@@ -217,7 +228,8 @@ for (subsetFlag in subsetList) {
                     fit <- eBayes(fit)
                     #topTable(fit,coef=ncol(design))
                     colId=2
-                    top=data.frame(geneId=rownames(fit$coef),logFC=fit$coef[,colId],logCPM=dgeF$AveLogCPM,PValue=fit$p.value[,colId])
+                    #top=data.frame(geneId=rownames(fit$coef),logFC=fit$coef[,colId],logCPM=dgeF$AveLogCPM,PValue=fit$p.value[,colId])
+                    top=data.frame(geneId=rownames(fit$coef),logFC=fit$coef[,colId],logCPM=dgeF$AveLogCPM,t=fit$t[,colId],PValue=fit$p.value[,colId])
                     top$FDR=NA
                     library(qvalue)
                     i=which(!is.na(top$PValue))

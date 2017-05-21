@@ -1,5 +1,8 @@
 R.utils::use("aroma.seq, edgeR, aroma.light, matrixStats")
 
+verbose=T
+verbose=F
+
 #fName="/compbio/data/annotationData/organisms/Homo_sapiens/GRCh38,hg38/Ensembl/79/Homo_sapiens.GRCh38.79.gtf"
 
 dataset <- "barcellosHoffMHTgfbTC"
@@ -36,9 +39,10 @@ round(summary(as.vector(rho)),2)
 
 dge$samples[, -1]
 samples=cbind(samples,dge$samples[,c("lib.size","norm.factors")])
-write.table(cbind(geneId=rownames(dge$counts),dge$counts), file=paste("count_raw_",organism,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-write.table(samples, file=paste("sample_",organism,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-
+if (verbose) {
+    write.table(cbind(geneId=rownames(dge$counts),dge$counts), file=paste("count_raw_",organism,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+    write.table(samples, file=paste("sample_",organism,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+}
 
 dge$samples$group <- samples$treat
 
@@ -51,9 +55,10 @@ j=j[which(!rownames(dge$samples)[j]%in%c("Donor_1_TGFbeta_4hrs","Donor_3_4_hrs")
 lcpmT=cpm(dge,log=TRUE)
 tbl=as.data.frame(lcpmT)
 tbl=cbind(ensembl_gene_id=rownames(tbl),tbl)
-write.table(tbl, file=paste("logCPM.txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-gzip("logCPM_allSamples.txt")
-
+if (verbose) {
+    write.table(tbl, file=paste("logCPM.txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+    gzip("logCPM_allSamples.txt")
+}
 #--------------------------
 
 dge=dge1
@@ -71,17 +76,19 @@ if (F) {
 
         dge <- calcNormFactors(dge, method = "TMM")
 
-        png("densityPlot_normCount.png")
-        par(mfcol=c(3,3))
-        xlim=range(c(dge$counts),na.rm=T)
-        xlim=c(0,50)
-        j=1
-        plot(density(dge$counts[,j],na.rm=T),xlim=xlim,main=paste("Densities of scale-normalized log2 gene counts across the ",ncol(dge$counts)," samples",sep=""),xlab="log(count)",col=colSam[j])
-        for (j in 2:ncol(dge$counts)) {
-        #	lines(density(dge$counts[,j],na.rm=T),col=colSam[j])
-            plot(density(dge$counts[,j],na.rm=T),col=colSam[j],xlim=xlim)
+        if (verbose) {
+            png("densityPlot_normCount.png")
+            par(mfcol=c(3,3))
+            xlim=range(c(dge$counts),na.rm=T)
+            xlim=c(0,50)
+            j=1
+            plot(density(dge$counts[,j],na.rm=T),xlim=xlim,main=paste("Densities of scale-normalized log2 gene counts across the ",ncol(dge$counts)," samples",sep=""),xlab="log(count)",col=colSam[j])
+            for (j in 2:ncol(dge$counts)) {
+                #lines(density(dge$counts[,j],na.rm=T),col=colSam[j])
+                plot(density(dge$counts[,j],na.rm=T),col=colSam[j],xlim=xlim)
+            }
+            dev.off()
         }
-        dev.off()
 
         dge$samples$group <- samples$treat
 
@@ -95,15 +102,17 @@ if (F) {
         30728 34488
         "
         
-        save(dgeT,file="dgeT_tmp.RData")
+        if (verbose) {
+            save(dgeT,file="dgeT_tmp.RData")
+        }
     }
 }
 
 if (F) {
     ## NOT USED
     ## Use the annotation from analysis.R
-    #source("biomartify.1.2.R")
-    source("/home/royr/shared/biomartify.R")
+    #source("/home/royr/shared/biomartify.R")
+    source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
     y=apply(dgeT$counts,1,function(x) {
         mean(log2(x),na.rm=T)
     })
@@ -144,12 +153,13 @@ for (subsetFlag in subsetList) {
                       },USE.NAMES=F)
     i=match(rownames(dge$counts),sub("*","",ann$gene_id,fixed=T))
     x=rpkm(dge, gene.length=ann$length[i], normalized.lib.sizes=TRUE, log=FALSE, prior.count=0.25)
-    write.table(cbind(geneId=rownames(dge$counts),x), file=paste("rpkm",fName1,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+    if (verbose) {
+        write.table(cbind(geneId=rownames(dge$counts),x), file=paste("rpkm",fName1,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
     
-#	save(dge,file=paste("dge",fName1,".RData",sep=""))
-    write.table(cbind(geneId=rownames(dge$counts),dge$counts), file=paste("count",fName1,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-    write.table(samples, file=paste("sample",fName1,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
-
+        #save(dge,file=paste("dge",fName1,".RData",sep=""))
+        write.table(cbind(geneId=rownames(dge$counts),dge$counts), file=paste("count",fName1,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+        write.table(samples, file=paste("sample",fName1,".txt",sep=""),col.names=T,row.names=F, sep="\t",quote=F)
+    }
     if (F) {
         png("densityPlot_normCount.png",width=3*240, height=3*240)
         par(mfcol=c(3,3))
@@ -160,7 +170,7 @@ for (subsetFlag in subsetList) {
         plot(density(dge$counts[,j],na.rm=T),xlim=xlim,main=paste("Densities of scale-normalized log2 gene counts across the ",ncol(dge$counts)," samples",sep=""),xlab="log(count)",col=colSam[j])
         for (j in 2:ncol(dge$counts)) {
             lines(density(dge$counts[,j],na.rm=T),col=colSam[j])
-        #	plot(density(dge$counts[,j],na.rm=T),col=colSam[j],xlim=xlim)
+            #plot(density(dge$counts[,j],na.rm=T),col=colSam[j],xlim=xlim)
         }
         dev.off()
     }
@@ -228,7 +238,9 @@ for (subsetFlag in subsetList) {
 
 #			fName2=paste("_",organism,compFlag,subsetName2,sep="")
             fName2=paste(compFlag,subsetName2,sep="")
-            save(dgeT,file=paste("dge_",organism,fName2,".RData",sep=""))
+            if (verbose) {
+                save(dgeT,file=paste("dge_",organism,fName2,".RData",sep=""))
+            }
 
             ## -----------------------------------------
 
@@ -245,25 +257,30 @@ for (subsetFlag in subsetList) {
                     et <- exactTest(dgeT,dispersion=dispFlag,pair=grpUniq[c(grpId1,grpId2)])
 
                     if (F) {
-                        source("funcs.R")
+                        #source("funcs.R")
+                        source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
 
                         top <- topTags(et, n = 100)
                         top <- biomartify(top)
 
                         top <- topTags(et, n = nrow(et))
                         top <- biomartify(top, organism = organism)
-                        write.table(top,paste("stat2",fName3,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
-#							save.image(paste("tmp",fName3,".RData",sep=""))
+                        if (verbose) {
+                            write.table(top,paste("stat2",fName3,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+                            #save.image(paste("tmp",fName3,".RData",sep=""))
+                        }
                     }
 
-                    source("biomartify.1.2.R")
+                    source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
                     top <- topTags(et, n = 100)
                     top <- biomartify(top, organism = ifelse(organism=="Mus_musculus","MusMusculus","HomoSapiens"))
                     
-                    source("biomartify.1.2.R")
+                    source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
                     top <- topTags(et, n = nrow(et))
                     top <- biomartify(top, organism = ifelse(organism=="Mus_musculus","MusMusculus","HomoSapiens"))
-                    write.table(top,paste("stat",fName3,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+                    if (verbose) {
+                        write.table(top,paste("stat",fName3,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+                    }
                 }
                 
                 ## Voom
@@ -286,21 +303,25 @@ for (subsetFlag in subsetList) {
                         dev.off()
                     }
                     dat <- voom(dgeF,design,save.plot=F)
-                    save(dat,design,file=paste("voom",fName3,".RData",sep=""))
+                    if (verbose) {
+                        save(dat,design,file=paste("voom",fName3,".RData",sep=""))
+                    }
                     fit <- lmFit(dat,design)
                     rm(dat)
                     fit <- eBayes(fit)
                     #topTable(fit,coef=ncol(design))
                     colId=2
                     top=cbind(geneId=rownames(fit$coef),logFC=fit$coef[,colId],PValue=fit$p.value[,colId])
-                    write.table(top,paste("stat",fName3,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+                    if (verbose) {
+                        write.table(top,paste("stat",fName3,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+                    }
                 }
             }
             
             ## -----------------------------------------
             if (subsetFlag=="") {
                 ## NOT USED
-                source("biomartify.1.2.R")
+                source(paste(dirSrc,"functions/biomartify.1.2.R",sep=""))
                 y=apply(dgeT$counts,1,function(x) {
                     mean(log2(x),na.rm=T)
                 })
