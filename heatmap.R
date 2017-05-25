@@ -15,8 +15,8 @@ outFormat="png"
 sampleBar=""
 sampleBar="cluster"
 
-geneBar="clusterPr"
 geneBar=""
+geneBar="clusterPr"
 
 centrFlag="_noCentering"
 centrFlag=""
@@ -52,6 +52,8 @@ subsetList=c("","_ucla","_biopsyPreTreat","_ucla_biopsyPreTreat")
 geneFlag="TGFbetaVuntreated_8hrs16fold_qv0.05"
 subsetList="_ucla_biopsyPreTreat_noOutlierScore"
 subsetList="_ucla_biopsyPreTreat"
+geneFlag="TGFbetaVuntreated_8hrs16fold_qv0.05"
+subsetList="_biopsyPreTreat"
 
 colGeneId="geneId"; colIdPV="FDR"; colNamePV="QV"
 
@@ -138,6 +140,7 @@ for (subsetFlag in subsetList) {
                     iC=match(tbl$geneSym,annV$geneSym)
                     arrayData=log2(datV[iC,j]+x)
                     annRow=cbind(annV[iC,],weight=tbl$weight)
+                    annRowAll=annRow
                     annCol=phenV[j,]
                     annColAll=phenV
                     varList=c("antiPd1Resp")
@@ -277,6 +280,7 @@ for (subsetFlag in subsetList) {
                 varNameAll=varName
                 varList=varList[k]
                 varName=varName[k]
+                varFList=varFListAll=varFName=varFNameAll="weight"
                 
                 colList=c("skyblue","blue","yellow","purple","red")
                 colList=c("brown","red","orange","yellow","green","cyan","skyblue","blue","pink","magenta","purple","darkgreen")
@@ -294,9 +298,9 @@ for (subsetFlag in subsetList) {
                     }
                     cloneName=rep("",nrow(annRow))
                     cloneName=annRow$geneSym
-                    if (geneBar=="clusterPr") {
-                        cloneCol=NULL
-                    } else {
+                    #if (geneBar=="clusterPr") {
+                    #    cloneCol=NULL
+                    #} else {
                         cloneCol=matrix(rep("white",nrow(arrayData)),nrow=1)
                         k1=1; kk=which(names(annRow)=="weight")
                         x=round(annRow[,kk]); x=x-min(x,na.rm=T)+1
@@ -307,7 +311,7 @@ for (subsetFlag in subsetList) {
                         cloneColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
                         cloneCol[k1,]=cloneColUniq[x]
                         rownames(cloneCol)="weight "
-                    }
+                        #}
                 } else {
                     cloneName=annRow$geneSymbol
                     cloneName=rep("",nrow(annRow))
@@ -490,40 +494,39 @@ for (subsetFlag in subsetList) {
             dev.off()
         }
     }
-    if (F) {
-        for (varId in 1:length(varListAll)) {
+    if (!is.null(cloneCol)) {
+        for (varId in 1:length(varFListAll)) {
             if (outFormat=="png") {
-                png(paste("heatmapSampleColorBarLegend_",varListAll[varId],".png",sep=""))
+                png(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".png",sep=""))
             } else {
-                pdf(paste("heatmapSampleColorBarLegend_",varListAll[varId],".pdf",sep=""))
+                pdf(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".pdf",sep=""))
             }
-            if (varList[varId]%in%c("os") | length(grep("t_",varList[varId]))==1) {
-                x=round(annColAll[,varListAll[varId]])
-                if (length(grep("t_",varList[varId]))==1) {
+            if (varFList[varId]%in%"weight") {
+                x=round(annRowAll[,varFListAll[varId]])
+                if (length(grep("t_",varFList[varId]))==1) {
                     lim=limSc
                 } else {
                     lim=range(x,na.rm=T)
                     #lim=quantile(x,probs=c(.1,.9),na.rm=T)
                 }
                 grpUniq=lim[1]:lim[2]
-                samColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
-                heatmapColorBar(limit=lim,cols=c(samColUniq[c(length(samColUniq),1)],median(samColUniq)))
+                cloneColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
+                heatmapColorBar(limit=lim,cols=c(cloneColUniq[c(length(cloneColUniq),1)],median(cloneColUniq)))
             } else {
-                if (varList[varId]%in%c("time")) {
-                    x=annColAll[,varListAll[varId]]
+                if (varFList[varId]%in%c("time")) {
+                    x=annRowAll[,varFListAll[varId]]
                 } else {
-                    x=as.character(annColAll[,varListAll[varId]]); x[x==""]=NA
+                    x=as.character(annRowAll[,varFListAll[varId]]); x[x==""]=NA
                 }
                 grpUniq=table(x)
-                #grpUniq=paste(names(grpUniq)," (",grpUniq,")",sep="")
                 grpUniq=names(grpUniq)
                 k=1:length(grpUniq)
                 if (length(grpUniq)<=length(colList2)) {
-                    sampleColorLegend(tls=grpUniq[k],col=colList2,legendTitle=varNameAll[varId])
+                    sampleColorLegend(tls=grpUniq[k],col=colList2,legendTitle=varFNameAll[varId])
                 } else if (length(grpUniq)<=length(colList)) {
-                    sampleColorLegend(tls=grpUniq[k],col=colList,legendTitle=varNameAll[varId])
+                    sampleColorLegend(tls=grpUniq[k],col=colList,legendTitle=varFNameAll[varId])
                 } else {
-                    sampleColorLegend(tls=grpUniq[k],col=rainbow(length(grpUniq)),legendTitle=varNameAll[varId])
+                    sampleColorLegend(tls=grpUniq[k],col=rainbow(length(grpUniq)),legendTitle=varFNameAll[varId])
                 }
             }
             dev.off()

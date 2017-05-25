@@ -95,7 +95,7 @@ stat1_36_10$t=stat2_36_10$t
 ## -------------------
 ## Weight
 
-library(pls)
+#library(pls)
 
 colId=c("geneId","logFC","logCPM","PValue","Qvalue")
 colId=c("geneId","logFC","logCPM","t","PValue","Qvalue")
@@ -202,7 +202,7 @@ for (geneFlag in geneList) {
 #####################################################################################
 ## Sample score
 
-getScore=function() {
+getScore=function(logFlag=F) {
     signatFlag=c("_uniqGeneSym","_scale")
     scaleFlag=T
     scaleFlag=F
@@ -228,6 +228,12 @@ getScore=function() {
         geneAnno=rbind(geneAnno,matrix(c(rep(geneFlag,length(i21)),annV$geneSym[i21],wtMat$t[i11]),ncol=3,byrow=F))
         
         x=datV[i21,]
+        if (logFlag) {
+            x0=x
+            x[x0==0]=NA
+            x=min(c(x),na.rm=T)/10
+            x=log2(x0+x)
+        }
         for (i in 1:nrow(x)) {
             x[i,]=x[i,]-median(x[i,],na.rm=T)
         }
@@ -387,7 +393,7 @@ for (k in 1:ncol(phenV)) {
 }
 paste(y,collapse=",")
 
-scoreMat=getScore()
+scoreMat=getScore(logFlag=T)
 
 #####################################################################################
 #####################################################################################
