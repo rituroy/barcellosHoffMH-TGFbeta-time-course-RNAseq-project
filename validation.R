@@ -202,10 +202,8 @@ for (geneFlag in geneList) {
 #####################################################################################
 ## Sample score
 
-getScore=function(logFlag=F) {
+getScore=function(logFlag=F,centerFlag=T,scaleFlag=F) {
     signatFlag=c("_uniqGeneSym","_scale")
-    scaleFlag=T
-    scaleFlag=F
     
     sdVec=apply(datV,1,sd,na.rm=T)
     i2=order(sdVec,decreasing=T)
@@ -218,6 +216,17 @@ getScore=function(logFlag=F) {
     geneAnno=NULL
     for (geneFlag in geneList) {
         wtMat=read.table(paste(datadir,"wtMat_",geneFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
+        x=as.integer(strsplit(strsplit(geneFlag,"_")[[1]][2],"hrs")[[1]][1])
+        if (x==8) {
+            stat2=stat1_8_10
+        } else if (x==12) {
+            stat2=stat1_12_10
+        } else if (x==36) {
+            stat2=stat1_36_10
+        } else {
+            stat2=NULL
+        }
+        statThis=stat2[match(wtMat$geneId,stat2$geneId),]
         i1=match(wtMat$geneId,ann$geneId)
         i=match(tolower(ann$geneSym[i1]),tolower(annV$geneSym[i2])); i11=which(!is.na(i)); i21=i2[i[!is.na(i)]]
         length(i21)
@@ -225,7 +234,7 @@ getScore=function(logFlag=F) {
         k=which(geneInfo$geneList==geneFlag)
         geneInfo$train[k]=length(i1)
         geneInfo$val[k]=length(i21)
-        geneAnno=rbind(geneAnno,matrix(c(rep(geneFlag,length(i21)),annV$geneSym[i21],wtMat$t[i11]),ncol=3,byrow=F))
+        geneAnno=rbind(geneAnno,matrix(c(rep(geneFlag,length(i21)),annV$geneSym[i21],wtMat$t[i11],statThis$logFC[i11]),ncol=4,byrow=F))
         
         x=datV[i21,]
         if (logFlag) {
@@ -234,13 +243,18 @@ getScore=function(logFlag=F) {
             x=min(c(x),na.rm=T)/10
             x=log2(x0+x)
         }
-        for (i in 1:nrow(x)) {
-            x[i,]=x[i,]-median(x[i,],na.rm=T)
+        if (centerFlag) {
+                for (i in 1:nrow(x)) {
+                x[i,]=x[i,]-median(x[i,],na.rm=T)
+            }
         }
         if (scaleFlag) {
+            #centr=apply(x,1,mad,na.rm=T)
             for (i in 1:nrow(x)) {
                 x[i,]=x[i,]/mad(x[i,],na.rm=T)
             }
+            #cat("\n\n=============== ",geneFlag," ==================\n")
+            #print(table(centr==0))
         }
         score=rep(0,ncol(x))
         for (j in 1:ncol(x)) {
@@ -255,7 +269,7 @@ getScore=function(logFlag=F) {
     tbl=cbind(id=phenV$id,tbl)
     write.table(tbl, paste("scoreMat",cohortFlag,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
 
-    colnames(geneAnno)=c("geneList","geneSym","weight")
+    colnames(geneAnno)=c("geneList","geneSym","weight","logFC")
     write.table(geneAnno, paste("geneList",cohortFlag,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
 
     write.table(geneInfo, paste("geneInfo",cohortFlag,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
@@ -342,7 +356,12 @@ for (k in 1:ncol(phenV)) {
 }
 paste(y,collapse=",")
 
-scoreMat=getScore()
+#scoreMat=getScore()
+#scoreMat=getScore(logFlag=F,centerFlag=T,scaleFlag=T)
+#scoreMat=getScore(logFlag=F,centerFlag=T,scaleFlag=F)
+scoreMat=getScore(logFlag=F,centerFlag=F,scaleFlag=F)
+
+datObj31=list(dat=datV,phen=phenV,ann=annV,score=scoreMat)
 
 ## -------------------
 
@@ -393,13 +412,35 @@ for (k in 1:ncol(phenV)) {
 }
 paste(y,collapse=",")
 
-scoreMat=getScore(logFlag=T)
+#scoreMat=getScore(logFlag=T,centerFlag=T,scaleFlag=T)
+#scoreMat=getScore(logFlag=T,centerFlag=T,scaleFlag=F)
+scoreMat=getScore(logFlag=T,centerFlag=F,scaleFlag=F)
+
+datObj20=list(dat=datV,phen=phenV,ann=annV,score=scoreMat)
 
 #####################################################################################
 #####################################################################################
 ## Association of sample score with clinical variables
 
+cohortFlag="_GSE78220"
+cohortFlag="_GSE33331"
+
 pThres=0.05
+
+switch(cohortFlag,
+"_GSE33331"={
+    datV=datObj31$dat
+    phenV=datObj31$phen
+    annV=datObj31$ann
+    scoreMat=datObj31$score
+},
+"_GSE78220"={
+    datV=datObj20$dat
+    phenV=datObj20$phen
+    annV=datObj20$ann
+    scoreMat=datObj20$score
+}
+)
 
 tbl=NULL
 if (cohortFlag=="_GSE33331") {
@@ -427,6 +468,10 @@ if (cohortFlag=="_GSE78220") {
     
     print(table(phenV$antiPd1Resp,phenV$studySite))
     print(table(phenV$antiPd1Resp,phenV$biopsyTime))
+    j=which(phenV$biopsyTime=="pre-treatment")
+    x=table(phenV$antiPd1Resp[j],phenV$studySite[j])
+    print(x)
+    cat("Fisher's exact test pv ",fisher.test(x)$p.value,"\n",sep="")
     
     library(coin)
 
@@ -484,7 +529,7 @@ if (cohortFlag=="_GSE78220") {
                         k2=which(names(phenThis)=="antiPd1Resp")
                         y=table(phenThis[,k2])
                         if (length(y)==2) {
-                            res=wilcox_test(x~as.factor(phenThis[,k2]))
+                            res=wilcox_test(x~as.factor(phenThis[,k2]),exact=T)
                         } else {
                             res=kruskal_test(x~as.factor(phenThis[,k2]))
                         }
@@ -509,6 +554,8 @@ tbl2=tbl
 tbl2$pv=signif(tbl2$pv,2)
 tbl2[tbl$pv<pThres,]
 "
+GSE78220
+
 >     print(table(phenV$antiPd1Resp,phenV$studySite))
 
                      UCLA VIC
@@ -516,55 +563,30 @@ Complete Response      5   0
 Partial Response       7   3
 Progressive Disease   11   2
 
->     print(table(phenV$antiPd1Resp,phenV$biopsyTime))
-
-                       on-treatment pre-treatment
-Complete Response              0             5
-Partial Response               0            10
-Progressive Disease            1            12
-
-
-Use this
-scaleFlag=F
-
-subset      variable                             scoreType     pv
-14                       antiPd1RespBi t_TGFbetaVuntreated_8hrs16fold_qv0.05 0.0230
-157      _biopsyPreTreat   antiPd1Resp t_TGFbetaVuntreated_8hrs16fold_qv0.05 0.0310
-168      _biopsyPreTreat antiPd1RespBi t_TGFbetaVuntreated_8hrs16fold_qv0.05 0.0087
-245 _ucla_biopsyPreTreat antiPd1RespBi t_TGFbetaVuntreated_8hrs16fold_qv0.05 0.0410
+UCLA VIC
+Complete Response      5   0
+Partial Response       7   3
+Progressive Disease   10   2
+Fisher's exact test pv 0.5571659
 
 ----------
-Most samples have score around 0
-scaleFlag=T
 
-GSE78220,
+logFlag=T, centerFlag=F, scaleFlag=F
 > tbl[tbl$pv<.05,]
-variable                                               scoreType         pv
-9  antiPd1Resp                   t_TGFbetaVuntreated_12hrs8fold_qv0.05 0.01747510
-62    mutation t_TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir 0.03039975
-65    mutation                        t_TGFbetaVuntreated_36hrs_qv0.05 0.04511612
-66    mutation                   t_TGFbetaVuntreated_36hrs8fold_qv0.05 0.04892632
-
-GSE78220, _ucla
-> tbl[tbl$pv<.05,]
-variable                                               scoreType        pv
-62 mutation t_TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir 0.0351877
-
-GSE78220, _biopsyPreTreat
-> tbl[tbl$pv<.05,]
-variable                                               scoreType         pv
-1  antiPd1Resp                         t_TGFbetaVuntreated_8hrs_qv0.05 0.02523951
-4  antiPd1Resp           t_TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir 0.01505551
-5  antiPd1Resp      t_TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir 0.01505551
-8  antiPd1Resp                        t_TGFbetaVuntreated_12hrs_qv0.05 0.01658921
-9  antiPd1Resp                   t_TGFbetaVuntreated_12hrs8fold_qv0.05 0.02523951
-62    mutation t_TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir 0.03326708
-
-
-GSE78220, _ucla_biopsyPreTreat
-> tbl[tbl$pv<.05,]
-variable                                               scoreType         pv
-62 mutation t_TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir 0.03966818
+subset      variable                                               scoreType     pv testType
+56                  previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0034   wilcox
+59                  previousMapki           t_TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir 0.0084   wilcox
+60                  previousMapki      t_TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir 0.0084   wilcox
+61                  previousMapki t_TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir 0.0130   wilcox
+63                  previousMapki                        t_TGFbetaVuntreated_12hrs_qv0.05 0.0450   wilcox
+133           _ucla previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0480   wilcox
+168 _biopsyPreTreat antiPd1RespBi                   t_TGFbetaVuntreated_8hrs16fold_qv0.05 0.0400   wilcox
+174 _biopsyPreTreat antiPd1RespBi                   t_TGFbetaVuntreated_12hrs8fold_qv0.05 0.0450   wilcox
+210 _biopsyPreTreat previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0064   wilcox
+213 _biopsyPreTreat previousMapki           t_TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir 0.0160   wilcox
+214 _biopsyPreTreat previousMapki      t_TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir 0.0160   wilcox
+215 _biopsyPreTreat previousMapki t_TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir 0.0240   wilcox
+220 _biopsyPreTreat previousMapki                   t_TGFbetaVuntreated_36hrs8fold_qv0.05 0.0310   wilcox
 "
 
 #####################################################################################

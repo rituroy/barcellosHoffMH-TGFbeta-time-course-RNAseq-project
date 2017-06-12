@@ -5,7 +5,7 @@ library(marray)
 #source(paste(dirSrc,"functions/heatmap.5.2.R",sep=""))
 #source(paste(dirSrc,"functions/heatmapAcgh.7.1.R",sep=""))
 source(paste(dirSrc,"functions/heatmap.5.6.R",sep=""))
-source(paste(dirSrc,"functions/heatmapAcgh.7.2.R",sep=""))
+source(paste(dirSrc,"functions/heatmapAcgh.7.3.R",sep=""))
 
 datadirG=""
 
@@ -15,11 +15,13 @@ outFormat="png"
 sampleBar=""
 sampleBar="cluster"
 
-geneBar=""
 geneBar="clusterPr"
+geneBar=""
 
 centrFlag="_noCentering"
 centrFlag=""
+scaleFlag="_scale"
+scaleFlag=""
 
 subsetFlag=""
 
@@ -29,6 +31,7 @@ pThres=10^-6
 pThres=0.05
 
 limSc=c(-100,100)
+limFCmmu=c(-8,8)
 
 cohortFlag=""
 compList="TopVar500"
@@ -42,6 +45,7 @@ geneFlag="TGFbetaVuntreated_8hrs16fold_qv0.05"
 subsetList=""
 
 cohortFlag="_GSE78220"
+compList="RndGene"
 compList=""
 #geneList=c("TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_8hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir","TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir","TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir")
 subsetFlag="_ucla"
@@ -52,10 +56,28 @@ subsetList=c("","_ucla","_biopsyPreTreat","_ucla_biopsyPreTreat")
 geneFlag="TGFbetaVuntreated_8hrs16fold_qv0.05"
 subsetList="_ucla_biopsyPreTreat_noOutlierScore"
 subsetList="_ucla_biopsyPreTreat"
+geneFlag="TGFbetaVuntreated_12hrs8fold_qv0.05"
 geneFlag="TGFbetaVuntreated_8hrs16fold_qv0.05"
 subsetList="_biopsyPreTreat"
 
+switch(cohortFlag,
+"_GSE33331"={
+    datV=datObj31$dat
+    phenV=datObj31$phen
+    annV=datObj31$ann
+    scoreMat=datObj31$score
+},
+"_GSE78220"={
+    datV=datObj20$dat
+    phenV=datObj20$phen
+    annV=datObj20$ann
+    scoreMat=datObj20$score
+}
+)
+
 colGeneId="geneId"; colIdPV="FDR"; colNamePV="QV"
+
+for (geneFlag in c("TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_qv0.05")) {
 
 tblCC=NULL
 for (subsetFlag in subsetList) {
@@ -68,7 +90,6 @@ for (subsetFlag in subsetList) {
         }
         
         for (rndId in rndVec) {
-            limFCmmu=c(-6,6)
             if (cohortFlag%in%c("_GSE78220","_GSE33331")) {
                 
             } else {
@@ -105,82 +126,74 @@ for (subsetFlag in subsetList) {
                 phen_1$id2=sub("Donor_","",sub("TGFbeta","tgfb",sub("hrs","h",sub("_hrs","hrs",phen_1$id))))
             }
             for (transFlag in c("")) {
-                if (cohortFlag%in%c("_GSE78220")) {
-                    j=which(!duplicated(phenV$patientId))
-                    if (subsetFlag=="") {
-                        subsetFlag=subsetName=""
-                    } else {
-                        subsetName=paste(", ",subsetFlag,sep="")
-                        if (subsetFlag=="_biopsyPreTreat") {
-                            j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
-                        }
-                        if (subsetFlag=="_ucla") {
-                            j=j[which(phenV$studySite[j]=="UCLA")]
-                        }
-                        if (subsetFlag=="_ucla_biopsyPreTreat") {
-                            j=j[which(phenV$studySite[j]=="UCLA")]
-                            j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
-                        }
-                        if (subsetFlag=="_ucla_biopsyPreTreat_noOutlierScore") {
-                            j=j[which(phenV$studySite[j]=="UCLA")]
-                            j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
-                            tbl=read.table(paste(datadirG,"scoreMat",cohortFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
-                            nm1=paste("t_",geneFlag,sep="")
-                            tbl=tbl[match(phenV$id,tbl$id),which(names(tbl)==nm1)]
-                            j=j[which(abs(tbl[j])<=90)]
-                        }
-                    }
-                    header=paste(sub("_","",cohortFlag),subsetFlag,sep="")
-                    fNameOut=paste(compFlag,cohortFlag,subsetFlag,sep="")
-                    x=datV; x[datV==0]=NA
-                    x=min(c(x),na.rm=T)/10
+                if (cohortFlag%in%c("_GSE78220","_GSE33331")) {
+                    subsetName=""
                     tbl=read.table(paste(datadirG,"geneList",cohortFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
                     tbl=tbl[which(tbl$geneList==geneFlag),]
-                    tbl=tbl[order(tbl$weight),]
+                    nm="weight"; nm1=nm
+                    nm="logFC"; nm1="log2FC"
+                    tbl=tbl[order(tbl[,nm]),]
                     iC=match(tbl$geneSym,annV$geneSym)
+                    if (cohortFlag%in%c("_GSE78220")) {
+                        j=which(!duplicated(phenV$patientId))
+                        if (subsetFlag!="") {
+                            subsetName=paste(", ",subsetFlag,sep="")
+                            if (subsetFlag=="_biopsyPreTreat") {
+                                j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
+                            }
+                            if (subsetFlag=="_ucla") {
+                                j=j[which(phenV$studySite[j]=="UCLA")]
+                            }
+                            if (subsetFlag=="_ucla_biopsyPreTreat") {
+                                j=j[which(phenV$studySite[j]=="UCLA")]
+                                j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
+                            }
+                            if (subsetFlag=="_ucla_biopsyPreTreat_noOutlierScore") {
+                                j=j[which(phenV$studySite[j]=="UCLA")]
+                                j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
+                                tbl=read.table(paste(datadirG,"scoreMat",cohortFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
+                                nm1=paste("t_",geneFlag,sep="")
+                                tbl=tbl[match(phenV$id,tbl$id),which(names(tbl)==nm1)]
+                                j=j[which(abs(tbl[j])<=90)]
+                            }
+                        }
+                        varList=c("antiPd1Resp")
+                        varList=c("antiPd1Resp","studySite","gender","diseaseStatus","vitalStatus","previousMapki","mutation","biopsyTime")
+                        x=datV; x[datV==0]=NA
+                        x=min(c(x),na.rm=T)/10
+                    } else if (cohortFlag%in%c("_GSE33331")) {
+                        j=1:nrow(phenV)
+                        varList=c("os")
+                        x=0
+                    } else {
+                        j=NULL
+                    }
+                    if (length(grep("Rnd",compFlag))==1) {
+                        #set.seed(5453)
+                        iC=sample(1:nrow(datV),length(iC),replace=F)
+                        header=paste(length(iC)," random probesets: ",sub("_","",cohortFlag),subsetFlag,sep="")
+                        fNameOut=paste("_",geneFlag,compFlag,cohortFlag,subsetFlag,sep="")
+                        fNameOut=paste(fNameOut,rndId,sep="")
+                        geneBar="clusterPr"
+                    } else {
+                        header=paste(sub("TGFbetaVuntreated","TGFbVuntreat",geneFlag),": ",sub("_","",cohortFlag),subsetFlag,sep="")
+                        fNameOut=paste("_",geneFlag,compFlag,cohortFlag,subsetFlag,sep="")
+                    }
                     arrayData=log2(datV[iC,j]+x)
-                    annRow=cbind(annV[iC,],weight=tbl$weight)
+                    annRow=cbind(annV[iC,],tbl[,nm])
+                    names(annRow)=c(names(annV),nm1)
                     annRowAll=annRow
                     annCol=phenV[j,]
                     annColAll=phenV
-                    varList=c("antiPd1Resp")
-                    varList=c("antiPd1Resp","studySite","gender","diseaseStatus","vitalStatus","previousMapki","mutation","biopsyTime")
+                    #names(annCol)[grep("t_",names(annCol))]="score"
+                    #names(annColAll)[grep("t_",names(annColAll))]="score"
                     varName=paste(varList," ",sep="")
-                    tbl=read.table(paste(datadirG,"scoreMat",cohortFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
-                    #tbl=tbl[match(phenV$id,tbl$id),which(substr(names(tbl),1,nchar("t_"))=="t_")]
-                    nm1=paste("t_",geneFlag,sep="")
-                    tbl=tbl[match(phenV$id,tbl$id),which(names(tbl)==nm1)]
-                    if (class(tbl)=="numeric") {
-                        nm=c(names(annColAll),nm1)
-                        annColAll=cbind(annColAll,tbl)
-                        names(annColAll)=nm
-                        nm=c(names(annCol),nm1)
-                        annCol=cbind(annCol,nm=tbl[j])
-                        names(annCol)=nm
-                    } else {
-                        annColAll=cbind(annColAll,tbl)
-                        annCol=cbind(annCol,tbl[j,])
-                    }
-                    varList=c(varList,nm1)
-                    varName=c(varName,"score ")
-                } else if (cohortFlag%in%c("_GSE33331")) {
-                    header=paste(sub("_","",cohortFlag),subsetFlag,sep="")
-                    fNameOut=paste(compFlag,cohortFlag,subsetFlag,sep="")
-                    tbl=read.table(paste(datadirG,"geneList",cohortFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
-                    tbl=tbl[which(tbl$geneList==geneFlag),]
-                    tbl=tbl[order(tbl$weight),]
-                    iC=match(tbl$geneSym,annV$geneSym)
-                    arrayData=datV[iC,]
-                    annRow=cbind(annV[iC,],weight=tbl$weight)
-                    annCol=phenV[,]
-                    annColAll=phenV
-                    varList=c("os")
-                    varName=paste(varList," ",sep="")
-                    if (F) {
+                    if (cohortFlag%in%c("_GSE78220")) {
                         tbl=read.table(paste(datadirG,"scoreMat",cohortFlag,".txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
                         #tbl=tbl[match(phenV$id,tbl$id),which(substr(names(tbl),1,nchar("t_"))=="t_")]
                         nm1=paste("t_",geneFlag,sep="")
                         tbl=tbl[match(phenV$id,tbl$id),which(names(tbl)==nm1)]
+                        nm1="score"
                         if (class(tbl)=="numeric") {
                             nm=c(names(annColAll),nm1)
                             annColAll=cbind(annColAll,tbl)
@@ -274,13 +287,23 @@ for (subsetFlag in subsetList) {
                     centr=apply(arrayData,1,median,na.rm=T)
                     arrayData=arrayData-centr
                 }
+                if (scaleFlag=="_scale") {
+                    centr=apply(arrayData,1,mad,na.rm=T)
+                    arrayData=arrayData/centr
+                }
+                arrayData[is.infinite(arrayData)]=NA
+                i=apply(arrayData,1,function(x) mean(!is.na(x) & !is.infinite(x))!=0)
+                arrayData=arrayData[i,]
+                annRow=annRow[i,]
                 
                 k=which(varList%in%names(annCol))
                 varListAll=varList
                 varNameAll=varName
                 varList=varList[k]
                 varName=varName[k]
-                varFList=varFListAll=varFName=varFNameAll="weight"
+                varFList=varFListAll="weight"
+                varFList=varFListAll="log2FC"
+                varFName=varFNameAll=paste(varFList," ",sep="")
                 
                 colList=c("skyblue","blue","yellow","purple","red")
                 colList=c("brown","red","orange","yellow","green","cyan","skyblue","blue","pink","magenta","purple","darkgreen")
@@ -293,24 +316,29 @@ for (subsetFlag in subsetList) {
                 if (cohortFlag%in%c("_GSE78220","_GSE33331")) {
                     distMethod="euclidean"
                     if (cohortFlag%in%c("_GSE78220")) {
-                        distMethod="pearson"
                         distMethod="cosine"
+                        distMethod="pearson"
+                        distMethod="euclidean"
                     }
                     cloneName=rep("",nrow(annRow))
                     cloneName=annRow$geneSym
                     #if (geneBar=="clusterPr") {
                     #    cloneCol=NULL
                     #} else {
+                    for (varId in 1:length(varFList)) {
                         cloneCol=matrix(rep("white",nrow(arrayData)),nrow=1)
-                        k1=1; kk=which(names(annRow)=="weight")
-                        x=round(annRow[,kk]); x=x-min(x,na.rm=T)+1
+                        k1=1; kk=which(names(annRow)==varFList[varId])
+                        x=round(annRow[,kk])
+                        lim=max(abs(x),na.rm=T); lim=c(-lim,lim)
+                        lim=lim-min(x,na.rm=T)+1; x=x-min(x,na.rm=T)+1
                         grpUniq=sort(unique(x[!is.na(x)]))
-                        limFCmmu=range(grpUniq)
-                        #x=round(annRow[,kk]); x[x<limFCmmu[1]]=limFCmmu[1]; x[x>limFCmmu[2]]=limFCmmu[2]; x=x+limFCmmu[2]+1
-                        grpUniq=limFCmmu[1]:limFCmmu[2]
+                        lim=limFCmmu
+                        x=round(annRow[,kk]); x[x<lim[1]]=lim[1]; x[x>lim[2]]=lim[2]; x=x+lim[2]+1
+                        grpUniq=lim[1]:lim[2]
                         cloneColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
                         cloneCol[k1,]=cloneColUniq[x]
-                        rownames(cloneCol)="weight "
+                    }
+                    rownames(cloneCol)=varFName
                         #}
                 } else {
                     cloneName=annRow$geneSymbol
@@ -333,16 +361,16 @@ for (subsetFlag in subsetList) {
                 if (subsetFlag=="") {
                     samName=rep("",ncol(arrayData))
                 } else {
-                    samName=annCol$id2
+                    samName=annCol$id
                 }
-                samName=annCol$id2
+                samName=annCol$id
                 samCol=NULL
                 samCol=matrix(nrow=length(varList),ncol=nrow(annCol))
                 for (varId in 1:length(varList)) {
-                    if (varList[varId]%in%c("os") | length(grep("t_",varList[varId]))==1) {
+                    if (varList[varId]%in%c("os") | length(grep("t_|score",varList[varId]))==1) {
                         j=match(annCol$id,annColAll$id)
                         x=round(annColAll[,varList[varId]])
-                        if (length(grep("t_",varList[varId]))==1) {
+                        if (length(grep("t_|score",varList[varId]))==1) {
                             lim=limSc+101
                             x=x+101
                         } else {
@@ -375,20 +403,24 @@ for (subsetFlag in subsetList) {
                 
                 print("summary(range(c(arrayData),na.rm=T))")
                 print(summary(range(c(arrayData),na.rm=T)))
-                if (centrFlag=="") {
-                    limit=c(-120000,120000)
-                    limit=c(-10000,10000)
-                    limit=c(-8,8)
+                if (cohortFlag%in%c("_GSE78220","_GSE33331")) {
                     limit=c(-1,1)
-                    limit=c(-3,3)
                 } else {
-                    limit=c(8,13)
+                    if (centrFlag=="") {
+                        limit=c(-120000,120000)
+                        limit=c(-10000,10000)
+                        limit=c(-8,8)
+                        limit=c(-1,1)
+                        limit=c(-3,3)
+                    } else {
+                        limit=c(8,13)
+                    }
                 }
                 main=NULL
                 main=header
                 
-                ncc=ncr=2
-                ncc=ncr=NA
+                nClust=c(NA,NA)
+                nClust=c(2,2)
                 
                 if (sampleBar=="cluster") {
                     switch(distMethod,
@@ -409,7 +441,7 @@ for (subsetFlag in subsetList) {
                     clustC=hclust(distMat, method=linkMethod)
                 } else {
                     clustC=NA
-                    ncc=NA
+                    nClust[2]=NA
                 }
                 if (geneBar=="clusterPr") {
                     switch(distMethod,
@@ -430,7 +462,7 @@ for (subsetFlag in subsetList) {
                     clustR=hclust(distMat, method=linkMethod)
                 } else {
                     clustR=NA
-                    ncr=NA
+                    nClust[1]=NA
                 }
                 
                 if (F) {
@@ -442,29 +474,33 @@ for (subsetFlag in subsetList) {
                 }
                 subDir=""
                 if (outFormat=="png") {
-                    margins=c(6,1)
-                    margins=c(10,20)
+                    if (cohortFlag%in%c("_GSE78220","_GSE33331")) {
+                        margins=c(6,1)
+                    } else {
+                        margins=c(6,1)
+                        margins=c(10,20)
+                    }
                     png(paste(subDir,"heatmap",fNameOut,".png",sep=""),width=480*2,height=480*2)
                 } else {
                     margins=c(12,5)
                     pdf(paste(subDir,"heatmap",fNameOut,".pdf",sep=""))
                 }
-                #hcc=heatmap3(x=arrayData, Rowv=as.dendrogram(clustR), Colv=as.dendrogram(clustC), distfun=distMethod, hclustfun=hclust, symm=F, ColSideColors=samCol, RowSideColors=cloneCol, labCol=samName, labRow=cloneName, ncr=ncr, ncc=ncc, scale="none", na.rm=F, margins=margins, main=main, xlab=NULL, ylab=NULL, zlm=limit,cexCol=2, , high=colHM[1], low=colHM[2], mid=colHM[3])
-                hcc=heatmap3(x=arrayData, Rowv=clustR, Colv=clustC, distfun=distMethod, hclustfun=hclust, symm=F, ColSideColors=samCol, RowSideColors=cloneCol, labCol=samName, labRow=cloneName, ncr=ncr, ncc=ncc, scale="none", na.rm=F, margins=margins, main=main, xlab=NULL, ylab=NULL, zlm=limit,cexCol=2, , high=colHM[1], low=colHM[2], mid=colHM[3])
+                #hcc=heatmap3(x=arrayData, Rowv=as.dendrogram(clustR), Colv=as.dendrogram(clustC), distfun=distMethod, hclustfun=hclust, symm=F, ColSideColors=samCol, RowSideColors=cloneCol, labCol=samName, labRow=cloneName, ncr=nClust[1], ncc=nClust[2], scale="none", na.rm=F, margins=margins, main=main, xlab=NULL, ylab=NULL, zlm=limit,cexCol=2, high=colHM[1], low=colHM[2], mid=colHM[3])
+                hcc=heatmap3(x=arrayData, Rowv=clustR, Colv=clustC, distfun=distMethod, hclustfun=hclust, symm=F, ColSideColors=samCol, RowSideColors=cloneCol, labCol=samName, labRow=cloneName, ncr=nClust[1], ncc=nClust[2], scale="none", na.rm=F, margins=margins, main=main, xlab=NULL, ylab=NULL, zlm=limit,cexCol=2, high=colHM[1], low=colHM[2], mid=colHM[3])
                 dev.off()
             }
         }
     }
     if (!is.null(samCol)) {
         for (varId in 1:length(varListAll)) {
-            if (outFormat=="png") {
-                png(paste("heatmapSampleColorBarLegend_",varListAll[varId],".png",sep=""))
-            } else {
-                pdf(paste("heatmapSampleColorBarLegend_",varListAll[varId],".pdf",sep=""))
-            }
-            if (varList[varId]%in%c("os") | length(grep("t_",varList[varId]))==1) {
+            if (varList[varId]%in%c("os") | length(grep("t_|score",varList[varId]))==1) {
+                if (outFormat=="png") {
+                    png(paste("heatmapSampleColorBarLegend_",varListAll[varId],".png",sep=""),width=480,height=140)
+                } else {
+                    pdf(paste("heatmapSampleColorBarLegend_",varListAll[varId],".pdf",sep=""))
+                }
                 x=round(annColAll[,varListAll[varId]])
-                if (length(grep("t_",varList[varId]))==1) {
+                if (length(grep("t_|score",varList[varId]))==1) {
                     lim=limSc
                 } else {
                     lim=range(x,na.rm=T)
@@ -472,8 +508,13 @@ for (subsetFlag in subsetList) {
                 }
                 grpUniq=lim[1]:lim[2]
                 samColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
-                heatmapColorBar(limit=lim,cols=c(samColUniq[c(length(samColUniq),1)],median(samColUniq)))
+                heatmapColorBar(limit=lim,cols=c(samColUniq[c(length(samColUniq),1)]),main=varNameAll[varId])
             } else {
+                if (outFormat=="png") {
+                    png(paste("heatmapSampleColorBarLegend_",varListAll[varId],".png",sep=""))
+                } else {
+                    pdf(paste("heatmapSampleColorBarLegend_",varListAll[varId],".pdf",sep=""))
+                }
                 if (varList[varId]%in%c("time")) {
                     x=annColAll[,varListAll[varId]]
                 } else {
@@ -496,23 +537,26 @@ for (subsetFlag in subsetList) {
     }
     if (!is.null(cloneCol)) {
         for (varId in 1:length(varFListAll)) {
-            if (outFormat=="png") {
-                png(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".png",sep=""))
-            } else {
-                pdf(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".pdf",sep=""))
-            }
-            if (varFList[varId]%in%"weight") {
-                x=round(annRowAll[,varFListAll[varId]])
-                if (length(grep("t_",varFList[varId]))==1) {
-                    lim=limSc
+            if (varFList[varId]%in%c("weight","log2FC")) {
+                if (outFormat=="png") {
+                    png(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".png",sep=""),width=480,height=140)
                 } else {
-                    lim=range(x,na.rm=T)
-                    #lim=quantile(x,probs=c(.1,.9),na.rm=T)
+                    pdf(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".pdf",sep=""))
+                }
+                x=round(annRowAll[,varFListAll[varId]])
+                lim=max(abs(x),na.rm=T); lim=c(-lim,lim)
+                if (varFList[varId]%in%c("log2FC")) {
+                    lim=limFCmmu
                 }
                 grpUniq=lim[1]:lim[2]
                 cloneColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
-                heatmapColorBar(limit=lim,cols=c(cloneColUniq[c(length(cloneColUniq),1)],median(cloneColUniq)))
+                heatmapColorBar(limit=lim,cols=c(cloneColUniq[c(length(cloneColUniq),1)]))
             } else {
+                if (outFormat=="png") {
+                    png(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".png",sep=""))
+                } else {
+                    pdf(paste("heatmapFeatureColorBarLegend_",varFListAll[varId],".pdf",sep=""))
+                }
                 if (varFList[varId]%in%c("time")) {
                     x=annRowAll[,varFListAll[varId]]
                 } else {
@@ -532,6 +576,51 @@ for (subsetFlag in subsetList) {
             dev.off()
         }
     }
+    
+    if (is.na(nClust[1])) {
+        tbl=cbind(annRow,order=1:nrow(annRow))
+        write.table(tbl, paste("clusterInfoFeature",fNameOut,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+    } else {
+        if (F) {
+            #png(paste("clusterVariables",fNameOut,".png",sep=""))
+            pdf(paste("clusterVariables",fNameOut,".pdf",sep=""))
+            plot(clustR,main=paste("Variable clusters with ",nClust[1]," main clusters marked in red",sep=""),xlab="",sub="",ylab=NULL,axes=F, cex=.2); rect.hclust(clustR,k=nClust[1])
+            dev.off()
+        }
+        
+        clustId=cutree(clustR,k=nClust[1])[clustR$order]
+        k1=which(!duplicated(clustId))
+        for (k in 1:length(k1)) {
+            clustId[which(clustId==clustId[k1[k]])]=paste("cluster",k,sep="")
+        }
+        
+        #tbl=as.data.frame(as.matrix(arrayData[clustR$order,]),stringsAsFactors=F)
+        #tbl=data.frame(variable=clustR$labels[clustR$order],clustId,order=1:nrow(arrayData),stringsAsFactors=F)
+        tbl=cbind(annRow[clustR$order,],clustId,order=1:nrow(annRow))
+        write.table(tbl, paste("clusterInfoFeature",fNameOut,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+    }
+    
+    if (is.na(nClust[2])) {
+        tbl=cbind(annCol,order=1:nrow(annCol))
+        write.table(tbl, paste("clusterInfoSample",fNameOut,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+    } else {
+        if (F) {
+            #png(paste("clusterSamples",fNameOut,".png",sep=""))
+            pdf(paste("clusterSamples",fNameOut,".pdf",sep=""))
+            plot(clustC,main=paste("Sample clusters with ",nClust[2]," main clusters marked in red",sep=""),xlab="",sub="",ylab=NULL,axes=F, cex=.2); rect.hclust(clustC,k=nClust[2])
+            dev.off()
+        }
+        
+        clustId=cutree(clustC,k=nClust[2])[clustC$order]
+        k1=which(!duplicated(clustId))
+        for (k in 1:length(k1)) {
+            clustId[which(clustId==clustId[k1[k]])]=paste("cluster",k,sep="")
+        }
+        
+        tbl=cbind(annCol[clustC$order,which(!names(annCol)%in%c("order"))],clustId,order=1:nrow(annCol))
+        write.table(tbl, paste("clusterInfoSample",fNameOut,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+    }
+}
 }
 if (F) {
     heatmapColorBar=function(limit,cols=c("green","red","black"),main=NULL) {
@@ -546,11 +635,13 @@ if (outFormat=="png") {
 }
 heatmapColorBar(limit=limit,cols=colHM,main="Heatmap color range")
 dev.off()
-png("heatmaplog2FoldChangeColorBarRange.png",width=480,height=140)
-grpUniq=limFCmmu[1]:limFCmmu[2]
-colColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
-heatmapColorBar(limit=limFCmmu,cols=c(colColUniq[c(length(colColUniq),1)],median(colColUniq)),main="log2FC")
-dev.off()
+if (F) {
+    png("heatmaplog2FoldChangeColorBarRange.png",width=480,height=140)
+    grpUniq=limFCmmu[1]:limFCmmu[2]
+    colColUniq=gray(0:(length(grpUniq)-1)/length(grpUniq))
+    heatmapColorBar(limit=limFCmmu,cols=c(colColUniq[c(length(colColUniq),1)],median(colColUniq)),main="log2FC")
+    dev.off()
+}
 
 ###########################################################
 ###########################################################
