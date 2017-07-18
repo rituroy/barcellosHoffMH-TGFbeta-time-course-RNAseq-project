@@ -58,6 +58,9 @@ for (k in which(names(ann2)%in%c("chr","start","end"))) {
 }
 ann2=cbind(ann[,c("geneId","geneSym")],ann2)
 
+annA=ann
+ann2A=ann2
+
 ## -------------------
 datadir="results/comparison/countNorm/donorFixedEffect/"
 datadir="results/final/tables/"
@@ -96,6 +99,9 @@ stat1_36_10$t=stat2_36_10$t
 ## Weight
 
 #library(pls)
+
+ann=annA
+ann2=ann2A
 
 colId=c("geneId","logFC","logCPM","PValue","Qvalue")
 colId=c("geneId","logFC","logCPM","t","PValue","Qvalue")
@@ -182,10 +188,10 @@ for (geneFlag in geneList) {
         print(table(resp))
         x=apply(expr[clId1,],1,function(x) {x-median(x,na.rm=T)})
         colnames(x)=paste("X",1:ncol(x),sep="")
-        thisData <- as.data.frame(cbind(resp,x[resp.na,]))
+        thisData=as.data.frame(cbind(resp,x[resp.na,]))
         
         if (min(table(resp))>1) {
-            fmla <- as.formula(paste(" ~ ", paste(colnames(x), collapse= "+")))
+            fmla=as.formula(paste(" ~ ", paste(colnames(x), collapse= "+")))
             fit=prcomp(fmla, center=F, scale=F, data = thisData)
             wtMat$pca[,datasetId]=fit$rotation[,1]
             
@@ -204,6 +210,7 @@ for (geneFlag in geneList) {
 
 getScore=function(logFlag=F,centerFlag=T,scaleFlag=F) {
     signatFlag=c("_uniqGeneSym","_scale")
+    ann=annA
     
     sdVec=apply(datV,1,sd,na.rm=T)
     i2=order(sdVec,decreasing=T)
@@ -338,7 +345,7 @@ for (k in which(names(phenV)%in%c("os"))) {
 }
 id=gsub("\"","",datV[,1])
 id[!id%in%annV$id]
-table(tolower(annV$geneSym)%in%tolower(ann$geneSym))
+table(tolower(annV$geneSym)%in%tolower(annA$geneSym))
 i=match(id,annV$id); i1=which(!is.na(i)); i2=i[i1]
 datV=as.matrix(datV[i1,-1])
 colnames(datV)=phenV$id
@@ -417,6 +424,81 @@ paste(y,collapse=",")
 scoreMat=getScore(logFlag=T,centerFlag=F,scaleFlag=F)
 
 datObj20=list(dat=datV,phen=phenV,ann=annV,score=scoreMat)
+
+#####################################################################################
+#####################################################################################
+## DE genes
+## Nothing significant for _GSE78220, antiPd1RespBi
+
+library(limma)
+library(qvalue)
+
+cohortFlag="_GSE78220"
+subsetFlag="_biopsyPreTreat"
+
+switch(cohortFlag,
+"_GSE33331"={
+    datV=datObj31$dat
+    phenV=datObj31$phen
+    annV=datObj31$ann
+    scoreMat=datObj31$score
+},
+"_GSE78220"={
+    datV=datObj20$dat
+    phenV=datObj20$phen
+    annV=datObj20$ann
+    scoreMat=datObj20$score
+}
+)
+j=which(!duplicated(phenV$patientId))
+if (subsetFlag=="") {
+    subsetFlag=subsetName=""
+} else {
+    subsetName=paste(", ",subsetFlag,sep="")
+    if (subsetFlag=="_biopsyPreTreat") {
+        j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
+    }
+    if (subsetFlag=="_ucla") {
+        j=j[which(phenV$studySite[j]=="UCLA")]
+    }
+    if (subsetFlag=="_ucla_biopsyPreTreat") {
+        j=j[which(phenV$studySite[j]=="UCLA")]
+        j=j[which(phenV$biopsyTime[j]=="pre-treatment")]
+    }
+}
+phenThis=cbind(phenV[j,],scoreMat[j,grep("t_",colnames(scoreMat))])
+phenThis$antiPd1RespBi=phenThis$antiPd1Resp
+phenThis$antiPd1RespBi[which(phenThis$antiPd1Resp%in%c("Complete Response","Partial Response"))]="CR/PR"
+i=apply(datV,1,function(x) mean(x,na.rm=T)!=0)
+i=apply(datV,1,function(x) mean(x,na.rm=T)!=0 & (sum(x==0,na.rm=T)/sum(!is.na(x)))<0.05)
+dat=log2(datV[i,j]+1)
+ann=annV[i,]
+
+varList="antiPd1RespBi"
+grp=phenThis[,varList]
+j=which(!is.na(grp))
+design=model.matrix(~grp[j])
+fit=lmFit(dat[,j],design)
+fit=eBayes(fit)
+colId=2
+stat2=ann
+names(stat2)=c("geneId","geneSym")
+stat2=cbind(stat2,logFC=fit$coef[,colId],t=fit$t[,colId],pv=fit$p.value[,colId])
+stat2$qv=NA
+i=which(!is.na(stat2$pv))
+stat2$qv[i]=p.adjust(stat2$pv[i],method="holm")
+stat20_1=stat2
+
+pThres=0.05
+png(paste("plots",cohortFlag,".png",sep=""))
+par(mfrow=c(2,2))
+hist(stat2$pv)
+i=which(stat2$qv<pThres)
+plot(stat2$logFC,-log10(stat2$pv),main=paste(varList,"\nNo. with qv<",pThres," = ",sum(i),sep=""),pch=19,cex=.8)
+points(stat2$logFC[i],-log10(stat2$pv[i]),pch=19,cex=.8,col="red")
+qqnorm(stat2$pv); qqline(stat2$pv)
+dev.off()
+dim(dat)
 
 #####################################################################################
 #####################################################################################
