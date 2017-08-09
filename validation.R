@@ -1,3 +1,5 @@
+## Validate our gene lists with other data
+
 ## ---------------------------------
 
 computerFlag="cluster"
@@ -18,49 +20,69 @@ if (computerFlag=="cluster") {
 
 
 ## -------------------
-datadir="results/final/misc/"
-
 phen=read.table(paste("docs/sampleInfo.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
-ann=read.table(paste(datadir,"ann_Homo_sapiens.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
-names(ann)[match(c("hgnc_symbol"),names(ann))]=c("geneSym")
-ann$chr=as.integer(ann$chromosome_name)
-ann$chr[which(ann$chromosome_name=="X")]=23
-ann$chr[which(ann$chromosome_name=="Y")]=24
-i=which(!is.na(ann$chr))
-x=paste("chr",ann$chromosome_name,":",ann$start_position,"-",ann$end_position,sep="")[i]
-write.table(x, file="ann_forUCSCliftover_hgGRCh38.txt",col.names=F,row.names=F, sep="\t",quote=F)
-
-datadir=""
-annC=read.table(paste(datadir,"ann_fromUCSCliftover_hgGRCh38toHgGRCh37.txt",sep=""),sep="\t",h=F,quote="",comment.char="",as.is=T,fill=T)
-annU=read.table(paste(datadir,"ann_fromUCSCliftover_unconverted_hgGRCh38toHgGRCh37.txt",sep=""),sep="\t",h=F,quote="",comment.char="",as.is=T,fill=T)
-i2=which(substr(annU[,1],1,nchar("chr"))=="chr")
-x2=annU[i2,1]
-x1=rep(NA,length(x))
-x1[!x%in%x2]=annC[,1]
-out=t(sapply(x1,function(x) {
-    y=strsplit(x,":")[[1]]
-    chr=y[1]
-    if (!is.na(chr)) {
-        if (chr=="chrX") {chr="chr23"} else if (chr=="chrY") {chr="chr24"}
+if (F) {
+    datadir="results/final/misc/"
+    ann=read.table(paste(datadir,"ann_Homo_sapiens.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
+    names(ann)[match(c("hgnc_symbol"),names(ann))]=c("geneSym")
+    ann$chr=as.integer(ann$chromosome_name)
+    ann$chr[which(ann$chromosome_name=="X")]=23
+    ann$chr[which(ann$chromosome_name=="Y")]=24
+    i=which(!is.na(ann$chr))
+    x=paste("chr",ann$chromosome_name,":",ann$start_position,"-",ann$end_position,sep="")[i]
+    write.table(x, file="ann_forUCSCliftover_hgGRCh38.txt",col.names=F,row.names=F, sep="\t",quote=F)
+    datadir=""
+    annC=read.table(paste(datadir,"ann_fromUCSCliftover_hgGRCh38toHgGRCh37.txt",sep=""),sep="\t",h=F,quote="",comment.char="",as.is=T,fill=T)
+    annU=read.table(paste(datadir,"ann_fromUCSCliftover_unconverted_hgGRCh38toHgGRCh37.txt",sep=""),sep="\t",h=F,quote="",comment.char="",as.is=T,fill=T)
+    i2=which(substr(annU[,1],1,nchar("chr"))=="chr")
+    x2=annU[i2,1]
+    x1=rep(NA,length(x))
+    x1[!x%in%x2]=annC[,1]
+    out=t(sapply(x1,function(x) {
+        y=strsplit(x,":")[[1]]
+        chr=y[1]
+        if (!is.na(chr)) {
+            if (chr=="chrX") {chr="chr23"} else if (chr=="chrY") {chr="chr24"}
+        }
+        chr=as.integer(sub("chr","",chr))
+        pos=strsplit(y[2],"-")[[1]]
+        c(chr,pos[1],pos[2])
+    },USE.NAMES=F))
+    tmp=rep("",nrow(ann))
+    ann2=matrix("",nrow=nrow(ann),ncol=3)
+    colnames(ann2)=c("chr","start","end")
+    ann2[i,]=out
+    ann2=as.data.frame(ann2,stringsAsFactors=F)
+    ann2$chr=sub("chr","",ann2$chr)
+    for (k in which(names(ann2)%in%c("chr","start","end"))) {
+        ann2[,k]=as.integer(ann2[,k])
     }
-    chr=as.integer(sub("chr","",chr))
-    pos=strsplit(y[2],"-")[[1]]
-    c(chr,pos[1],pos[2])
-},USE.NAMES=F))
-tmp=rep("",nrow(ann))
-ann2=matrix("",nrow=nrow(ann),ncol=3)
-colnames(ann2)=c("chr","start","end")
-ann2[i,]=out
-ann2=as.data.frame(ann2,stringsAsFactors=F)
-ann2$chr=sub("chr","",ann2$chr)
-for (k in which(names(ann2)%in%c("chr","start","end"))) {
-    ann2[,k]=as.integer(ann2[,k])
+    ann2=cbind(ann[,c("geneId","geneSym")],ann2)
 }
-ann2=cbind(ann[,c("geneId","geneSym")],ann2)
+
+## -------------------
+source("/Users/royr/Downloads/barcellosHoffMH-TGFbetaTC-tgfb/funcs.R")
+ann38=getAnnotation(build=38)
+ann37=getAnnotation(build=37)
+
+## -------------------
+ann=ann38
+ann=ann37
+if (F) {
+    names(ann)[match(c("hgnc_symbol"),names(ann))]=c("geneSym")
+    ann$chr=as.integer(ann$chromosome_name)
+    ann$chr[which(ann$chromosome_name=="X")]=23
+    ann$chr[which(ann$chromosome_name=="Y")]=24
+    ann2=ann
+}
+
+## -------------------
 
 annA=ann
-ann2A=ann2
+#ann2A=ann2
 
+#####################################################################################
+#####################################################################################
 ## -------------------
 datadir="results/comparison/countNorm/donorFixedEffect/"
 datadir="results/final/tables/"
@@ -101,12 +123,12 @@ stat1_36_10$t=stat2_36_10$t
 #library(pls)
 
 ann=annA
-ann2=ann2A
+#ann2=ann2A
 
 colId=c("geneId","logFC","logCPM","PValue","Qvalue")
 colId=c("geneId","logFC","logCPM","t","PValue","Qvalue")
 pThres=0.05
-geneList=c("TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_8hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir","TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir","TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_36hrs_qv0.05","TGFbetaVuntreated_36hrs8fold_qv0.05")
+geneList=c("TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_8hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir","TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs8fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_36hrs_qv0.05","TGFbetaVuntreated_36hrs8fold_qv0.05")
 for (geneFlag in geneList) {
     cat("\n\n============ ",geneFlag," ============\n",sep="")
     switch(geneFlag,
@@ -130,6 +152,13 @@ for (geneFlag in geneList) {
         i=match(stat1_8_10$geneId,stat1_12_10$geneId); i1=which(!is.na(i)); i2=i[i1]
         stat2=stat1_8_10[i1,colId]
         stat2=stat2[which(stat1_12_10$Qvalue[i2]<pThres & sign(stat2$logFC)==sign(stat1_12_10$logFC[i2])),]
+        i1=which(stat2$Qvalue<pThres)
+    },
+    "TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir"={
+        lfcThres=c(4,3)
+        i=match(stat1_8_10$geneId,stat1_12_10$geneId); i1=which(!is.na(i)); i2=i[i1]
+        stat2=stat1_8_10[i1,colId]
+        stat2=stat2[which(stat1_12_10$Qvalue[i2]<pThres & sign(stat2$logFC)==sign(stat1_12_10$logFC[i2]) & abs(stat2$logFC)>=lfcThres[1] & abs(stat1_12_10$logFC[i2])>=lfcThres[2]),]
         i1=which(stat2$Qvalue<pThres)
     },
     "TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir"={
@@ -174,7 +203,8 @@ for (geneFlag in geneList) {
         i1=which(stat2$Qvalue<pThres & abs(stat2$logFC)>=lfcThres)
     }
     )
-    stat2=cbind(stat2,ann2[match(stat2$geneId,ann2$geneId),which(!names(ann2)%in%names(stat2))])
+    #stat2=cbind(stat2,ann2[match(stat2$geneId,ann2$geneId),which(!names(ann2)%in%names(stat2))])
+    stat2=cbind(stat2,ann[match(stat2$geneId,ann$geneId),c("geneSym","chr","start_position","end_position")])
     cat("No. of genes: ",length(i1),"\n",sep="")
     wtMat=matrix(nrow=length(i1), ncol=3,dimnames=list(stat2$geneId[i1],c("t","pca","plsr")))
     wtMat[,"t"]=stat2$t[i1]
@@ -337,7 +367,7 @@ if (F) {
 }
 fName="HG-U133_Plus_2.na36.annot_RRedit_lean.csv"
 annV=read.table(paste(datadir,fName,sep=""),sep=",",h=T,quote="",comment.char="",as.is=T,fill=T)
-names(annV)[match(c("Probe.Set.ID","Gene.Symbol","Chromosomal.Location","Unigene.Cluster.Type","Ensembl","Entrez.Gene"),names(annV))]=c("id","geneSym","chrLoc","unigeneClustType","ensemblGeneId","entrezGeneId")
+names(annV)[match(c("Probe.Set.ID","Alignments","Gene.Symbol","Ensembl","Entrez.Gene"),names(annV))]=c("id","chrLoc","geneSym","ensemblGeneId","entrezGeneId")
 
 phenV$geoAcc=sapply(names(datV)[-1],function(x) {strsplit(x,".",fixed=T)[[1]][2]},USE.NAMES=F)
 for (k in which(names(phenV)%in%c("os"))) {
@@ -402,6 +432,7 @@ colnames(phenV)[match(c("patient id","anti-pd-1 response","study site","gender",
 c("patientId","antiPd1Resp","studySite","gender","age","diseaseStatus","overallSurvival","vitalStatus","previousMapki","anatomicalLocation","mutation","treatment","biopsyTime","tissue")
 rownames(phenV)=NULL
 phenV=as.data.frame(cbind(id=id,phenV[-1,]),stringsAsFactors=F)
+phenV$antiPd1RespBi=as.integer((phenV$antiPd1Resp%in%c("Complete Response","Partial Response")))
 datV=read.table(paste(datadir,"GSE78220_PatientFPKM.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T,nrow=-1)
 annV=data.frame(id=sapply(datV$Gene,function(x) {gsub("-","_",x)},USE.NAMES=F),geneSym=datV$Gene,stringsAsFactors=F)
 id=sapply(names(datV),function(x) {strsplit(x,".",fixed=T)[[1]][1]},USE.NAMES=F)
@@ -435,6 +466,7 @@ library(qvalue)
 
 cohortFlag="_GSE78220"
 subsetFlag="_biopsyPreTreat"
+compFlag="_respVprogDisease"
 
 switch(cohortFlag,
 "_GSE33331"={
@@ -467,14 +499,20 @@ if (subsetFlag=="") {
     }
 }
 phenThis=cbind(phenV[j,],scoreMat[j,grep("t_",colnames(scoreMat))])
-phenThis$antiPd1RespBi=phenThis$antiPd1Resp
-phenThis$antiPd1RespBi[which(phenThis$antiPd1Resp%in%c("Complete Response","Partial Response"))]="CR/PR"
+if (F) {
+    #phenThis$antiPd1RespBi=phenThis$antiPd1Resp
+    #phenThis$antiPd1RespBi[which(phenThis$antiPd1Resp%in%c("Complete Response","Partial Response"))]="CR/PR"
+    phenThis$antiPd1RespBi=as.integer((phenThis$antiPd1Resp%in%c("Complete Response","Partial Response")))
+}
 i=apply(datV,1,function(x) mean(x,na.rm=T)!=0)
 i=apply(datV,1,function(x) mean(x,na.rm=T)!=0 & (sum(x==0,na.rm=T)/sum(!is.na(x)))<0.05)
 dat=log2(datV[i,j]+1)
 ann=annV[i,]
 
-varList="antiPd1RespBi"
+if (compFlag=="_respVprogDisease") {
+    compName="Complete/partial response vs. Progressive disease"
+    varList="antiPd1RespBi"
+}
 grp=phenThis[,varList]
 j=which(!is.na(grp))
 design=model.matrix(~grp[j])
@@ -489,14 +527,18 @@ i=which(!is.na(stat2$pv))
 stat2$qv[i]=p.adjust(stat2$pv[i],method="holm")
 stat20_1=stat2
 
+fNameOut=paste(compFlag,cohortFlag,subsetFlag,sep="")
+
+write.table(stat2,paste("stat",fNameOut,".txt",sep=""), sep="\t", col.names=T, row.names=F, quote=F)
+
 pThres=0.05
-png(paste("plots",cohortFlag,".png",sep=""))
-par(mfrow=c(2,2))
-hist(stat2$pv)
+png(paste("plots",fNameOut,".png",sep=""),width=2*480,height=480)
+par(mfrow=c(1,2))
+hist(stat2$pv,main=compName,xlab="P-value")
 i=which(stat2$qv<pThres)
-plot(stat2$logFC,-log10(stat2$pv),main=paste(varList,"\nNo. with qv<",pThres," = ",sum(i),sep=""),pch=19,cex=.8)
+plot(stat2$logFC,-log10(stat2$pv),main=paste(compName,"\nNo. with qv<",pThres," = ",sum(i),sep=""),xlab="Log2 fold change",ylab="-Log10(p-value)",pch=19,cex=.8)
 points(stat2$logFC[i],-log10(stat2$pv[i]),pch=19,cex=.8,col="red")
-qqnorm(stat2$pv); qqline(stat2$pv)
+#qqnorm(stat2$pv); qqline(stat2$pv)
 dev.off()
 dim(dat)
 
@@ -504,8 +546,8 @@ dim(dat)
 #####################################################################################
 ## Association of sample score with clinical variables
 
-cohortFlag="_GSE78220"
 cohortFlag="_GSE33331"
+cohortFlag="_GSE78220"
 
 pThres=0.05
 
@@ -562,6 +604,7 @@ if (cohortFlag=="_GSE78220") {
     subsetFlag="_biopsyPreTreat"
     subsetFlag="_ucla_biopsyPreTreat"
     subsetList=c("","_ucla","_biopsyPreTreat","_ucla_biopsyPreTreat")
+    subsetList="_biopsyPreTreat"
     for (subsetFlag in subsetList) {
         j=which(!duplicated(phenV$patientId))
         if (subsetFlag=="") {
@@ -581,11 +624,14 @@ if (cohortFlag=="_GSE78220") {
         }
 
         phenThis=cbind(phenV[j,],scoreMat[j,grep("t_",colnames(scoreMat))])
-        phenThis$antiPd1RespBi=phenThis$antiPd1Resp
-        phenThis$antiPd1RespBi[which(phenThis$antiPd1Resp%in%c("Complete Response","Partial Response"))]="CR/PR"
+        if (F) {
+            phenThis$antiPd1RespBi=phenThis$antiPd1Resp
+            phenThis$antiPd1RespBi[which(phenThis$antiPd1Resp%in%c("Complete Response","Partial Response"))]="CR/PR"
+        }
         varList=c("antiPd1Resp","studySite","gender","diseaseStatus","vitalStatus","previousMapki","mutation","biopsyTime")
         varList=c("antiPd1Resp","gender","diseaseStatus","vitalStatus","previousMapki","mutation")
         varList=c("antiPd1Resp","antiPd1RespBi","gender","diseaseStatus","vitalStatus","previousMapki","mutation")
+        varList="antiPd1RespBi"
         for (k1 in match(varList,names(phenThis))) {
             #cat("\n\n==== ",names(phenThis)[k1]," ===========\n")
             for (k in grep("t_",names(phenThis))) {
@@ -604,8 +650,15 @@ if (cohortFlag=="_GSE78220") {
                 tbl2=c(subsetFlag,names(phenThis)[k1],names(phenThis)[k],pv,testType)
                 tbl=rbind(tbl,tbl2)
                 if (pv<pThres) {
+                    if (names(phenThis)[k1]=="antiPd1RespBi") {
+                        y=as.factor(2-phenThis[,k1])
+                        ttl=c("PR/CR","Progressive Disease")
+                    } else {
+                        y=as.factor(phenThis[,k1])
+                        ttl=sort(unique(phenThis[,k1]))
+                    }
                     png(paste("boxplot_sampleScore_",names(phenThis)[k1],"_",names(phenThis)[k],cohortFlag,subsetFlag,".png",sep=""))
-                    boxplot(x~as.factor(phenThis[,k1]),main=paste(cohortFlag,ifelse(subsetFlag=="","",", "),subsetFlag,"\n",sub("t_","",names(phenThis)[k]),": pv ",signif(pv,2),sep=""),ylab="Sample score")
+                    boxplot(x~y,names=ttl,main=paste(cohortFlag,ifelse(subsetFlag=="","",", "),subsetFlag,"\n",sub("t_","",names(phenThis)[k]),"\npv ",signif(pv,2),sep=""),ylab="Sample score")
                     dev.off()
                     if (names(phenThis)[k1]=="antiPd1RespBi") {
                         k2=which(names(phenThis)=="antiPd1Resp")
@@ -617,7 +670,7 @@ if (cohortFlag=="_GSE78220") {
                         }
                         pv=pvalue(res)
                         png(paste("boxplot_sampleScore_",names(phenThis)[k2],"_",names(phenThis)[k],cohortFlag,subsetFlag,".png",sep=""))
-                        boxplot(x~as.factor(phenThis[,k2]),main=paste(cohortFlag,ifelse(subsetFlag=="","",", "),subsetFlag,"\n",sub("t_","",names(phenThis)[k]),": pv ",signif(pv,2),sep=""),ylab="Sample score")
+                        boxplot(x~as.factor(phenThis[,k2]),main=paste(cohortFlag,ifelse(subsetFlag=="","",", "),subsetFlag,"\n",sub("t_","",names(phenThis)[k]),"\npv ",signif(pv,2),sep=""),ylab="Sample score")
                         dev.off()
                     }
                 }
@@ -638,14 +691,14 @@ tbl2[tbl$pv<pThres,]
 "
 GSE78220
 
->     print(table(phenV$antiPd1Resp,phenV$studySite))
+> print(table(phenV$antiPd1Resp,phenV$studySite))
 
                      UCLA VIC
 Complete Response      5   0
 Partial Response       7   3
 Progressive Disease   11   2
 
-UCLA VIC
+                     UCLA VIC
 Complete Response      5   0
 Partial Response       7   3
 Progressive Disease   10   2
@@ -654,6 +707,26 @@ Fisher's exact test pv 0.5571659
 ----------
 
 logFlag=T, centerFlag=F, scaleFlag=F
+
+build=37
+> tbl2[tbl$pv<pThres,]
+subset      variable                                               scoreType     pv testType
+56                  previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0029   wilcox
+59                  previousMapki           t_TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir 0.0073   wilcox
+60                  previousMapki      t_TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir 0.0073   wilcox
+61                  previousMapki t_TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir 0.0170   wilcox
+63                  previousMapki                        t_TGFbetaVuntreated_12hrs_qv0.05 0.0280   wilcox
+133           _ucla previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0340   wilcox
+168 _biopsyPreTreat antiPd1RespBi                   t_TGFbetaVuntreated_8hrs16fold_qv0.05 0.0400   wilcox
+174 _biopsyPreTreat antiPd1RespBi                   t_TGFbetaVuntreated_12hrs8fold_qv0.05 0.0310   wilcox
+210 _biopsyPreTreat previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0055   wilcox
+213 _biopsyPreTreat previousMapki           t_TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir 0.0140   wilcox
+214 _biopsyPreTreat previousMapki      t_TGFbetaVuntreated_8hrs2fold_12hrs_qv0.05_sameDir 0.0140   wilcox
+215 _biopsyPreTreat previousMapki t_TGFbetaVuntreated_8hrs2fold_12hrs2fold_qv0.05_sameDir 0.0310   wilcox
+217 _biopsyPreTreat previousMapki                        t_TGFbetaVuntreated_12hrs_qv0.05 0.0460   wilcox
+220 _biopsyPreTreat previousMapki                   t_TGFbetaVuntreated_36hrs8fold_qv0.05 0.0310   wilcox
+
+build=38
 > tbl[tbl$pv<.05,]
 subset      variable                                               scoreType     pv testType
 56                  previousMapki                         t_TGFbetaVuntreated_8hrs_qv0.05 0.0034   wilcox

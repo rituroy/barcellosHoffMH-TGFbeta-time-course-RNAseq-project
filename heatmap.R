@@ -77,7 +77,7 @@ switch(cohortFlag,
 
 colGeneId="geneId"; colIdPV="FDR"; colNamePV="QV"
 
-for (geneFlag in c("TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_qv0.05")) {
+for (geneFlag in c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")) {
 
 tblCC=NULL
 for (subsetFlag in subsetList) {
