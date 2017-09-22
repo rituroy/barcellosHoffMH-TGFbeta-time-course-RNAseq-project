@@ -114,31 +114,31 @@ cohort1List=c("_gonzalezJunca","_GSE78220")
 cohortFlag="_pollara2017"
 cohortFlag="_gentles2015"
 cohortFlag="_newman2015"
+cohortList=c("_pollara2017","_gentles2015","_newman2015","TGFbetaVuntreated_8hrs16fold_qv0.05")
 cohortList=c("_pollara2017","_gentles2015","_newman2015")
-
-#cohort1List=c("_gonzalezJunca")
 
 for (cohort1Flag in cohort1List) {
     switch(cohort1Flag,
-    "_gonzalezJunca"={
-        datadir="results/comparison/"
-        compList=c("TGFbetaVuntreated_4hrs_qv0.05","TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_36hrs_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")
-        compList=c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir")
-        compList=c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")
-        alt="greater"
-        alt="two.sided"
-        multtestFlag="_allFeatures"
-    },
-    "_GSE78220"={
-        datadir=""
-        compList=c("respVprogDisease_pv0.05")
-        alt="two.sided"
-        multtestFlag="_allFeatures"
-        multtestFlag="_candGene"
-        multtestFlag="_none"
-    }
+        "_gonzalezJunca"={
+            datadir="results/comparison/"
+            compList=c("TGFbetaVuntreated_4hrs_qv0.05","TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_36hrs_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")
+            compList=c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir")
+            compList=c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")
+            alt="greater"
+            alt="two.sided"
+            multtestFlag="_allFeatures"
+        },
+        "_GSE78220"={
+            datadir=""
+            compList=c("respVprogDisease_pv0.05")
+            alt="two.sided"
+            multtestFlag="_allFeatures"
+            multtestFlag="_candGene"
+            multtestFlag="_none"
+        }
     )
     for (cohortFlag in cohortList) {
+        if (cohort1Flag=="_gonzalezJunca" & substr(cohortFlag,1,nchar("TGFbetaVuntreated_"))=="TGFbetaVuntreated_") next
         cat("\n\n=========",cohort1Flag,", ",cohortFlag,"=============\n",sep="")
         switch(cohortFlag,
             "_pollara2017"={
@@ -152,6 +152,18 @@ for (cohort1Flag in cohort1List) {
             "_newman2015"={
                 candGene=candGeneN
                 genesetUniq=unique(candGene$group)
+            },
+            "TGFbetaVuntreated_8hrs16fold_qv0.05"={
+                stat_1=stat1_8_10
+                for (k in c("PValue","Qvalue")) stat_1[,k]=1
+                i=which(stat1_8_10$Qvalue<pThres & abs(stat1_8_10$logFC)>=4)
+                stat_1$Qvalue[i]=0
+                nm=data.frame(name1=c("hgnc_symbol","PValue","Qvalue"),name2=c("geneSym","pv","qv"),stringsAsFactors=F); nm=nm[nm$name1%in%names(stat_1),]
+                if (nrow(nm)!=0) names(stat_1)[match(nm$name1,names(stat_1))]=nm$name2
+                candGene=stat_1
+                candGene$group=""
+                candGene$group[i]="TGFb"
+                genesetUniq="TGFb"
             }
         )
 
@@ -313,6 +325,7 @@ for (cohort1Flag in cohort1List) {
         write.table(tbl1,file=paste("stat_val",cohort1Flag,"_signat",cohortFlag,".txt",sep=""),col.names=T,row.names=F,sep="\t",quote=F)
     }
 }
+
 "
 
 =========_gonzalezJunca, _pollara2017=============
