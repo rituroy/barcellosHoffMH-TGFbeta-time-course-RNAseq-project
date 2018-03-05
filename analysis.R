@@ -23,6 +23,7 @@ datadir="results/funcAnno/"
 
 ## -------------------
 datadir="results/comparison/"
+datadir="results/final/misc/"
 
 phen <- read.table(paste("docs/sampleInfo.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
 #ann10 <- read.table(paste(datadir,"ann_Homo_sapiens.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
@@ -40,6 +41,7 @@ stat1_36 <- read.table(paste(datadir,"stat_TGFbetaVuntreated_36hrs_autoDisp.txt"
 
 ## -------------------
 datadir="results/comparison/countNorm/donorFixedEffect/"
+datadir="results/comparison/countNorm/dispUsedGenes/donorFixedEffect/tables/"
 
 statVF_4_0 <- read.table(paste(datadir,"stat_TGFbetaVuntreated_4hrs_voom_minCnt0.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
 statVF_4_2 <- read.table(paste(datadir,"stat_TGFbetaVuntreated_4hrs_voom_minCnt2.txt",sep=""),sep="\t",h=T,quote="",comment.char="",as.is=T,fill=T)
@@ -520,22 +522,23 @@ for (compFlag in c("TGFbetaVuntreated_4hrs","TGFbetaVuntreated_8hrs","TGFbetaVun
 
 colIdPV="pv"; colNamePV="PV"; pThres=10^-6
 colIdPV="qv"; colNamePV="QV"; pThres=0.05
+colIdPV="qv"; colNamePV="QV"; pThres=0.001
 
 table(stat1_4$PValue<pThres)
 table(stat1_8$PValue<pThres)
 table(stat1_12$PValue<pThres)
 table(stat1_36$PValue<pThres)
 
-onePlotFlag=F
 onePlotFlag=T
-
-minCntFlag=c(10)
-compFlag3=""
+onePlotFlag=F
 
 minCntFlag=c(0,2,5,10,20)
 compFlag3="_edgerVsVoom"
 compFlag3="_edgeR"
 compFlag3="_voom"
+
+minCntFlag=c(10)
+compFlag3=""
 
 out=NULL
 if (compFlag3=="") {
@@ -549,7 +552,8 @@ if (compFlag3=="") {
         }
     }
 }
-for (compFlag in c("TGFbetaVuntreated_4hrs","TGFbetaVuntreated_8hrs","TGFbetaVuntreated_12hrs","TGFbetaVuntreated_36hrs")) {
+#for (compFlag in c("TGFbetaVuntreated_4hrs","TGFbetaVuntreated_8hrs","TGFbetaVuntreated_12hrs","TGFbetaVuntreated_36hrs")) {
+for (compFlag in c("TGFbetaVuntreated_8hrs")) {
     if (compFlag3=="") compList=compFlag
     if (compFlag3=="_edgerVsVoom") compList=c("edgeR",paste("voom_minCnt",minCntFlag,sep=""))
     if (compFlag3=="_voom") compList=paste("voom_minCnt",minCntFlag,sep="")
@@ -692,7 +696,8 @@ for (compFlag in c("TGFbetaVuntreated_4hrs","TGFbetaVuntreated_8hrs","TGFbetaVun
         if (!onePlotFlag) dev.off()
         
         if (!onePlotFlag) png(paste("volcanoPlot_",compFlag,"_",tolower(colNamePV),pThres,".png",sep=""))
-        if (colIdPV=="pv") i=which(stat_1$PValue<pThres) else i=which(stat_1$FDR<pThres)
+        #if (colIdPV=="pv") i=which(stat_1$PValue<pThres) else i=which(stat_1$FDR<pThres)
+        if (colIdPV=="pv") i=which(stat_1$PValue<pThres) else i=which(stat_1$Qvalue<pThres)
         plot(stat_1$logFC,-log10(stat_1$PValue),xlab="Log2 fold change",ylab="-Log10(p-value)",main=paste(compName,"\nNo. with ",tolower(colNamePV)," < ",pThres,": ",length(i),sep=""),pch=19,cex=.8,cex.axis=1.5,cex.lab=1.5)
         if (length(i)!=0) points(stat_1$logFC[i],-log10(stat_1$PValue[i]),col="red",pch=19,cex=.8)
         if (!onePlotFlag) dev.off()

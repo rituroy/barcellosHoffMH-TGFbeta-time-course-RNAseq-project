@@ -117,6 +117,9 @@ cohortFlag="_newman2015"
 cohortList=c("_pollara2017","_gentles2015","_newman2015","TGFbetaVuntreated_8hrs16fold_qv0.05")
 cohortList=c("_pollara2017","_gentles2015","_newman2015")
 
+cohort1List="_gonzalezJunca"
+cohortList="_newman2015"
+
 for (cohort1Flag in cohort1List) {
     switch(cohort1Flag,
         "_gonzalezJunca"={
@@ -124,6 +127,7 @@ for (cohort1Flag in cohort1List) {
             compList=c("TGFbetaVuntreated_4hrs_qv0.05","TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_36hrs_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")
             compList=c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir")
             compList=c("TGFbetaVuntreated_8hrs16fold_qv0.05","TGFbetaVuntreated_12hrs8fold_qv0.05","TGFbetaVuntreated_8hrs16fold_12hrs8fold_qv0.05_sameDir","TGFbetaVuntreated_8hrs_qv0.05","TGFbetaVuntreated_12hrs_qv0.05","TGFbetaVuntreated_8hrs_12hrs_qv0.05_sameDir")
+            compList=c("TGFbetaVuntreated_8hrs_qv0.05")
             alt="greater"
             alt="two.sided"
             multtestFlag="_allFeatures"
@@ -169,7 +173,7 @@ for (cohort1Flag in cohort1List) {
 
         tmp=rep(NA,length(compList)*length(genesetUniq))
         tmpC=rep("",length(compList)*length(genesetUniq))
-        #tbl=data.frame(comp=tmpC,geneset=tmpC,or=tmp,,pv=tmp,stringsAsFactors=F)
+        #tbl=data.frame(comp=tmpC,geneset=tmpC,or=tmp,lcbtmp,ucb=tmp,pv=tmp,stringsAsFactors=F)
         orMat=pvMat=matrix(nrow=length(genesetUniq),ncol=length(compList),dimnames=list(genesetUniq,compList))
         kk=1
         tbl1=NULL
@@ -259,18 +263,22 @@ for (cohort1Flag in cohort1List) {
                 numFeat=nrow(stat_1)
                 numSignif=sum(stat_1$qv<pThres)
                 numInSignat=sum(stat_1$candGene==1)
+                genesInSignat=paste(stat_1$geneSym[which(stat_1$candGene==1)],collapse="/")
                 numSignifAndInSignat=sum(stat_1$qv<pThres & stat_1$candGene==1)
                 if (nrow(x)==2) {
                     res=fisher.test(x,alternative=alt)
                     pv=res$p.value
                     or=res$estimate
+                    ci=res$conf.int
                 } else {
-                    pv=or=NA
+                    pv=or=ci=NA
                 }
                 if (F) {
                     tbl$comp[kk]=compFlag
                     tbl$geneset[kk]=genesetUniq[gId]
                     tbl$or[kk]=or
+                    tbl$lcb[kk]=ci[1]
+                    tbl$ucb[kk]=ci[2]
                     tbl$pv[kk]=pv
                     kk=kk+1
                 }
@@ -278,14 +286,37 @@ for (cohort1Flag in cohort1List) {
                 pvMat[gId,cId]=pv
                 #cat("\nPV ",signif(pv,2),"\n")
                 #print(x)
-                tbl2=c(sub("_","",cohortFlag),genesetUniq[gId],sub("_","",cohort1Flag),compFlag,sub("_","",multtestFlag),numFeat,numSignif,numInSignat,numSignifAndInSignat,log(or),pv,alt)
+                tbl2=c(sub("_","",cohortFlag),genesetUniq[gId],sub("_","",cohort1Flag),compFlag,sub("_","",multtestFlag),numFeat,numSignif,numInSignat,genesInSignat,numSignifAndInSignat,log(or),log(ci),pv,alt)
                 tbl1=rbind(tbl1,tbl2)
+            }
+            grpInfo=data.frame(grp=c("monocyte","m0","neutrophil","dendCellRest","dendCellActiv","m2"),name=c("Monocytes","Macrophages M0","Neutrophils","Dendritic cells resting","Dendritic cells activated","MacrophagesM2"),name2=c("Monocytes","Macrophages\nM0","Neutrophils","Dendritic cells\nresting","Dendritic cells\nactivated","Macrophages\nM2"),stringsAsFactors=F)
+            k=which(paste("_",tbl1[,1],sep="")==cohortFlag & paste("_",tbl1[,3],sep="")==cohort1Flag)
+            k1=match(grpInfo$grp,tbl1[k,2]); k1=k1[which(!is.na(k1))]
+            #k1=1:length(k)
+            if (length(k1)!=0) {
+                k=k[k1]
+                x=apply(tbl1[k,11:13],c(1,2),as.numeric)
+                xlim=c(0.5,length(k)+0.5)
+                ylim=range(x[is.finite(x)],na.rm=T)
+                png(paste("lorPlot_",compFlag,"_val",cohort1Flag,"_signat",cohortFlag,".png",sep=""))
+                par(mar=c(5, 4, 4, 2) + 0.1)
+                par(mar=c(8, 5, 1, 1) + 0.1)
+                plot(1:length(k),x[,1],xlim=xlim,ylim=ylim,cex=2,xaxt="n",xlab="",ylab="log (odds ratio)")
+                axis(side=1,at=1:length(k),labels=grpInfo$name2[match(tbl1[k,2],grpInfo$grp)],las=3)
+                ci=x[,2:3]; ci[which(ci==-Inf)]=lim[1]-1; ci[which(ci==Inf)]=lim[2]+1
+                for (k1 in 1:length(k)) {
+                    lines(rep(k1,2),y=ci[k1,],lty="solid")
+                    lines(k1+c(-0.1,0.1),y=rep(x[k1,2],2),lty="solid")
+                    lines(k1+c(-0.1,0.1),y=rep(x[k1,3],2),lty="solid")
+                }
+                abline(h=0,lty="dotted")
+                dev.off()
             }
         }
         rownames(tbl1)=NULL
         tbl1=as.data.frame(tbl1,stringsAsFactors=F)
-        names(tbl1)=c("cohortSignat","geneset","cohortVal","assoWith","multTest","numFeat","numSignif","numSignat","numSignifSignat","lor","pv","testAlt")
-        for (k in c("numFeat","numSignif","numSignat","numSignifSignat","lor","pv")) tbl1[,k]=as.numeric(tbl1[,k])
+        names(tbl1)=c("cohortSignat","geneset","cohortVal","assoWith","multTest","numFeat","numSignif","numSignat","genesSignat","numSignifSignat","lor","lcb","ucb","pv","testAlt")
+        for (k in c("numFeat","numSignif","numSignat","numSignifSignat","lor","lcb","ucb","pv")) tbl1[,k]=as.numeric(tbl1[,k])
 
         ## Do Holm's adjustment since the tests are not independent
         #library(qvalue)
